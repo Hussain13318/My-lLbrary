@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title>My Library</title>
+  <rect width="64" height="64" rx="8" fill="#163b63"/>
+  <path d="M16 15h24a8 8 0 0 1 8 8v27H24a8 8 0 0 1-8-8V15Z" fill="#fff"/>
+  <path d="M24 15v35M24 23h16M24 31h16" fill="none" stroke="#163b63" stroke-width="3"/>
+</svg>

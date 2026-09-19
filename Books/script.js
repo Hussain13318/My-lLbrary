@@ -16,16 +16,14 @@ const elements = {
   modalGenre: document.getElementById("modalGenre"),
   modalDescription: document.getElementById("modalDescription"),
   modalCover: document.getElementById("modalCover"),
+  modalClose: document.querySelector(".modal-close"),
 };
 
 const COVER_CACHE_STORAGE_KEY = "my-library-google-covers-v1";
 const MAX_CONCURRENT_COVER_REQUESTS = 3;
 const COVER_REQUEST_GAP_MS = 220;
-const FALLBACK_COVER = createPlaceholderCover("No Cover");
-
 let allBooks = [];
 let filteredBooks = [];
-let debugLogList;
 const coverCache = new Map(loadPersistedCoverEntries());
 const activeFetches = new Map();
 const coverRequestQueue = [];
@@ -35,8 +33,6 @@ let nextAllowedRequestAt = 0;
 init();
 
 async function init() {
-  setupDebugPanel();
-
   try {
     const response = await fetch("books.json", { cache: "no-store" });
     if (!response.ok) {
@@ -53,11 +49,7 @@ async function init() {
       coverImage: book.coverImage || "",
     }));
 
-    console.info(`Loaded ${allBooks.length} books from books.json.`);
-    logDebug("info", `Loaded ${allBooks.length} books from books.json.`);
-  } catch (error) {
-    console.error("Unable to load books.json.", error);
-    logDebug("error", `Unable to load books.json: ${error.message || error}`);
+  } catch {
     allBooks = [];
   }
 
@@ -77,7 +69,7 @@ function attachListeners() {
 
 function populateGenreFilter() {
   const genres = [...new Set(allBooks.map((book) => book.genre))].sort((a, b) => a.localeCompare(b));
-  elements.genreFilter.innerHTML = '<option value="all">All genres</option>';
+  elements.genreFilter.replaceChildren(new Option("All genres", "all"));
 
   for (const genre of genres) {
     const option = document.createElement("option");
@@ -112,17 +104,17 @@ function applyFilters() {
 }
 
 function renderBooks(books) {
-  elements.bookGrid.innerHTML = "";
+  elements.bookGrid.replaceChildren();
   elements.emptyState.hidden = books.length !== 0;
   elements.visibleBooks.textContent = String(books.length);
   elements.footerCount.textContent = String(allBooks.length);
 
-  for (const book of books) {
-    elements.bookGrid.appendChild(createBookCard(book));
-  }
+  books.forEach((book, index) => {
+    elements.bookGrid.appendChild(createBookCard(book, index));
+  });
 }
 
-function createBookCard(book) {
+function createBookCard(book, index) {
   const card = elements.bookCardTemplate.content.firstElementChild.cloneNode(true);
   const cover = card.querySelector(".book-cover");
   const genrePill = card.querySelector(".genre-pill");
@@ -130,7 +122,9 @@ function createBookCard(book) {
   genrePill.textContent = book.genre;
   card.querySelector(".book-title").textContent = book.title;
   card.querySelector(".book-author").textContent = book.author;
-  cover.alt = `${book.title} cover`;
+  cover.alt = `Cover of ${book.title}`;
+  cover.loading = index < 6 ? "eager" : "lazy";
+  cover.decoding = "async";
   setCoverFallback(cover, book);
   loadBookCover(book, cover);
 
@@ -145,21 +139,25 @@ function createBookCard(book) {
   return card;
 }
 
+function setImageSource(imageElement, source, book) {
+  imageElement.alt = `Cover of ${book.title}`;
+  imageElement.src = source;
+}
+
 async function loadBookCover(book, imageElement) {
   if (book.coverImage) {
-    console.info(`Using local cover for ${book.title}: ${book.coverImage}`);
-    imageElement.src = book.coverImage;
+    setImageSource(imageElement, book.coverImage, book);
     return;
   }
 
   const cacheKey = `${book.title}::${book.author}`.toLowerCase();
   if (coverCache.has(cacheKey)) {
-    imageElement.src = coverCache.get(cacheKey);
+    setImageSource(imageElement, coverCache.get(cacheKey), book);
     return;
   }
 
   if (activeFetches.has(cacheKey)) {
-    imageElement.src = await activeFetches.get(cacheKey);
+    setImageSource(imageElement, await activeFetches.get(cacheKey), book);
     return;
   }
 
@@ -177,19 +175,16 @@ async function loadBookCover(book, imageElement) {
   activeFetches.set(cacheKey, fetchPromise);
 
   try {
-    imageElement.src = await fetchPromise;
-  } catch (error) {
-    console.warn(`Cover request failed for ${book.title}.`, error);
-    imageElement.src = createPlaceholderCover(book.title);
+    setImageSource(imageElement, await fetchPromise, book);
+  } catch {
+    setImageSource(imageElement, createPlaceholderCover(book.title), book);
   }
 }
 
 function setCoverFallback(imageElement, book) {
   imageElement.onerror = () => {
-    if (imageElement.src.endsWith("/" + book.coverImage) && book.coverImage) {
-      console.warn(`Local cover failed for ${book.title}.`);
-    }
-    imageElement.src = createPlaceholderCover(book.title);
+    imageElement.onerror = null;
+    setImageSource(imageElement, createPlaceholderCover(book.title), book);
   };
 }
 
@@ -237,12 +232,12 @@ async function fetchGoogleBookCoverWithRetry(book, maxAttempts = 3) {
 
       const data = await response.json();
       const thumbnail = extractThumbnail(data);
-      return thumbnail ? thumbnail.replace("http:", "https:") : null;
-    } catch (error) {
-      if (attempt === maxAttempts) {
-        console.warn(`Google Books lookup failed for ${book.title}.`, error);
-        return null;
-      }
+      if (!thumbnail) return null;
+      const coverUrl = new URL(thumbnail);
+      coverUrl.protocol = "https:";
+      return coverUrl.toString();
+    } catch {
+      if (attempt === maxAttempts) return null;
       await wait(attempt * 900);
     }
   }
@@ -259,16 +254,22 @@ function extractThumbnail(data) {
   return null;
 }
 
+let lastFocusedElement;
+
 function openModal(book) {
+  lastFocusedElement = document.activeElement;
   elements.modalTitle.textContent = book.title;
   elements.modalAuthor.textContent = `By ${book.author}`;
   elements.modalGenre.textContent = book.genre;
   elements.modalDescription.textContent = book.description;
-  elements.modalCover.alt = `${book.title} cover`;
+  elements.modalCover.alt = `Cover of ${book.title}`;
+  elements.modalCover.loading = "eager";
+  elements.modalCover.decoding = "async";
   setCoverFallback(elements.modalCover, book);
   loadBookCover(book, elements.modalCover);
   elements.modal.classList.add("is-open");
   elements.modal.setAttribute("aria-hidden", "false");
+  elements.modalClose.focus();
 }
 
 function handleModalClose(event) {
@@ -278,6 +279,7 @@ function handleModalClose(event) {
 function closeModal() {
   elements.modal.classList.remove("is-open");
   elements.modal.setAttribute("aria-hidden", "true");
+  lastFocusedElement?.focus();
 }
 
 function handleKeyboardShortcuts(event) {
@@ -297,29 +299,17 @@ function updateCounters(books) {
 }
 
 function renderGenreCounts(counts) {
-  elements.genreCounts.innerHTML = "";
+  elements.genreCounts.replaceChildren();
   for (const genre of Object.keys(counts).sort((a, b) => a.localeCompare(b))) {
     const chip = document.createElement("div");
     chip.className = "genre-chip";
-    chip.innerHTML = `<span>${genre}</span><strong>${counts[genre]}</strong>`;
+    const name = document.createElement("span");
+    name.textContent = genre;
+    const count = document.createElement("strong");
+    count.textContent = String(counts[genre]);
+    chip.append(name, count);
     elements.genreCounts.appendChild(chip);
   }
-}
-
-function setupDebugPanel() {
-  const panel = document.createElement("section");
-  panel.id = "debugPanel";
-  panel.style.cssText = "display:none";
-  debugLogList = document.createElement("div");
-  panel.appendChild(debugLogList);
-  document.querySelector(".page-shell").after(panel);
-}
-
-function logDebug(level, message) {
-  if (!debugLogList) return;
-  const entry = document.createElement("div");
-  entry.textContent = `[${level.toUpperCase()}] ${message}`;
-  debugLogList.appendChild(entry);
 }
 
 function loadPersistedCoverEntries() {
