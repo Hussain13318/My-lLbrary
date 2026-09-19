@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Library</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css?v=3" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">M</div>
+      <div>
+        <h1>My Library</h1>
+        <p>Personal reading tracker</p>
+      </div>
+    </div>
+
+    <div class="search-wrap">
+      <label class="sr-only" for="searchInput">Search books</label>
+      <input id="searchInput" type="search" placeholder="Search by title or author..." autocomplete="off" />
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <section class="hero">
+      <div>
+        <span class="eyebrow">Private book collection</span>
+        <h2>Track, filter, and explore your library.</h2>
+        <p>
+          A clean personal bookshelf with live search, genre filtering, sorting, and quick details for every title.
+        </p>
+      </div>
+
+      <div class="stats-panel">
+        <div class="stat-card">
+          <span>Total Books</span>
+          <strong id="totalBooks">0</strong>
+        </div>
+        <div class="stat-card">
+          <span>Genres</span>
+          <strong id="totalGenres">0</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="toolbar" aria-label="Book controls">
+      <div class="control-group">
+        <label for="genreFilter">Genre</label>
+        <select id="genreFilter">
+          <option value="all">All genres</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label for="sortSelect">Sort by</label>
+        <select id="sortSelect">
+          <option value="title-asc">Title A to Z</option>
+          <option value="author-asc">Author A to Z</option>
+        </select>
+      </div>
+
+      <div class="control-group count-box">
+        <label>Showing</label>
+        <div><span id="visibleBooks">0</span> books</div>
+      </div>
+    </section>
+
+    <section class="genre-summary" aria-label="Genre counts">
+      <h3>Genre breakdown</h3>
+      <div id="genreCounts" class="genre-counts"></div>
+    </section>
+
+    <section>
+      <div id="bookGrid" class="book-grid" aria-live="polite"></div>
+      <div id="emptyState" class="empty-state" hidden>
+        <h3>No books found</h3>
+        <p>Try another search, genre, or sort option.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>My Library</p>
+    <p><span id="footerCount">0</span> books cataloged</p>
+  </footer>
+
+  <div id="bookModal" class="modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-card">
+      <button class="modal-close" type="button" aria-label="Close details" data-close-modal>&times;</button>
+      <div class="modal-cover-wrap">
+        <img id="modalCover" alt="Book cover" />
+      </div>
+      <div class="modal-content">
+        <span id="modalGenre" class="genre-pill"></span>
+        <h3 id="modalTitle"></h3>
+        <p class="modal-author" id="modalAuthor"></p>
+        <p id="modalDescription" class="modal-description"></p>
+      </div>
+    </div>
+  </div>
+
+  <template id="bookCardTemplate">
+    <article class="book-card" tabindex="0">
+      <div class="cover-frame">
+        <img class="book-cover" alt="" />
+      </div>
+      <div class="card-body">
+        <span class="genre-pill"></span>
+        <h3 class="book-title"></h3>
+        <p class="book-author"></p>
+      </div>
+    </article>
+  </template>
+
+  <script src="script.js"></script>
+</body>
+</html>
